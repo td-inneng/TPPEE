@@ -1,0 +1,14 @@
+Reference month,Electricity produced [kWh],Electricity sold to the network [kWh],Electricity self-consumed [kWh]
+January,37050,6510,30540
+February,49700,8790,40910
+March,79500,13910,65590
+April,94020,25890,68130
+May,105500,28970,76530
+June,110580,40860,69720
+July,70010,20140,49870
+August,86450,37410,49040
+September,76930,33580,43350
+October,50590,16860,33730
+November,31000,10570,20430
+December,17510,2780,14730
+Total,808840,246270,562570
