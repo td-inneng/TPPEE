@@ -1,0 +1,11 @@
+,,,,,,
+,,,,,,
+Ref ID,Risk Description,Source Type,Likelihood (1-5),Impact (1-16),Risk Severity Score ,Priority
+R1,Energy prices volatility,External/Economic (Threat),4,16,64,1
+R2,Supply chain interruption,External/Economic (Threat),2,14,28,4
+R3,Cybersecurity threat,External/Technological (Threat),3,7,21,5
+R4,Competitive pricing pressure,External/Economic (Threat),4,10,40,2
+R5,Increased regulation,External/Political/Legal (Threat),3,5,15,7
+R6,Interuption of production,Internal/Operational (Weakness),3,12,36,3
+R7,PV production spikes without batery storagy,Internal/Technological (Weakness),4,4,16,6
+R8,Unsuitable Energy managment team,Internal/Organizational (Weakness),1,4,4,8

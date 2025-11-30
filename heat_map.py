@@ -1,16 +1,13 @@
 import pandas as pd
 import plotly.graph_objects as go
+import os
 
-risk_db = pd.DataFrame(
-    {
-        "Risk": ["R1", "R2", "R3", "R4"],
-        "Likelihood": [0, 0, 0, 0],
-        "Impact": [0, 0, 0, 0],
-        "Priority": [0, 0, 0, 0],
-    }
-)
+# Get the directory of the current script
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
-fig = go.Figure(data=go.Scatter(x=risk_db["Impact"], y=risk_db["Likelihood"], mode="markers"))
+# Read risk data
+risk_db = pd.read_csv(os.path.join(script_dir, "risk_table.csv"), skiprows=2)
+
 impact_bins = [0, 16 / 3, 2 * 16 / 3, 16]
 likelihood_bins = [0, 5 / 3, 2 * 5 / 3, 5]
 
@@ -19,47 +16,73 @@ likelihood_bins = [0, 5 / 3, 2 * 5 / 3, 5]
 # Rows: Likelihood (Low, Medium, High)
 # Columns: Impact (Low, Medium, High)
 risk_matrix_values = [
-    [0, 1, 1],  # Low Likelihood: Low Impact -> Low, Medium Impact -> Medium, High Impact -> Medium
-    [1, 1, 2],  # Medium Likelihood: Low Impact -> Medium, Medium Impact -> Medium, High Impact -> High
-    [1, 2, 2],  # High Likelihood: Low Impact -> Medium, Medium Impact -> High, High Impact -> High
+    [
+        0,
+        1,
+        1,
+    ],  # Low Likelihood: Low Impact -> Low, Medium Impact -> Medium, High Impact -> Medium
+    [
+        1,
+        1,
+        2,
+    ],  # Medium Likelihood: Low Impact -> Medium, Medium Impact -> Medium, High Impact -> High
+    [
+        1,
+        2,
+        2,
+    ],  # High Likelihood: Low Impact -> Medium, Medium Impact -> High, High Impact -> High
+]
+
+# Calculate bin centers for the heatmap
+impact_centers = [
+    impact_bins[0] + (impact_bins[1] - impact_bins[0]) / 2,
+    impact_bins[1] + (impact_bins[2] - impact_bins[1]) / 2,
+    impact_bins[2] + (impact_bins[3] - impact_bins[2]) / 2,
+]
+
+likelihood_centers = [
+    likelihood_bins[0] + (likelihood_bins[1] - likelihood_bins[0]) / 2,
+    likelihood_bins[1] + (likelihood_bins[2] - likelihood_bins[1]) / 2,
+    likelihood_bins[2] + (likelihood_bins[3] - likelihood_bins[2]) / 2,
 ]
 
 fig = go.Figure(
     data=go.Heatmap(
         z=risk_matrix_values,
-        x=["Low Impact", "Medium Impact", "High Impact"],
-        y=["Low Likelihood", "Medium Likelihood", "High Likelihood"],
-        colorscale=[[0, "green"], [0.5, "yellow"], [1, "red"]],
+        x=impact_centers,
+        y=likelihood_centers,
+        colorscale="RdYlGn_r",
+        zsmooth="best",
         colorbar=dict(
             tickvals=[0, 1, 2],
             ticktext=["Low Risk", "Medium Risk", "High Risk"],
             title="Risk Level",
         ),
+        showscale=False,
     )
 )
 
+# Add scatter plot for each risk
+for index, row in risk_db.iterrows():
+    fig.add_trace(
+        go.Scatter(
+            x=[row["Impact (1-16)"]],
+            y=[row["Likelihood (1-5)"]],
+            mode="markers+text",
+            text=[row["Ref ID"]],
+            textposition="top center",
+            marker=dict(size=10),
+            name=row["Risk Description"],
+        )
+    )
+
 fig.update_layout(
     title="Risk Heat Map",
-    xaxis_title="Impact (0-16)",
-    yaxis_title="Likelihood (0-5)",
-    xaxis=dict(
-        tickmode="array",
-        tickvals=[0, 1, 2],
-        ticktext=[
-            f"0-{impact_bins[1]:.1f}",
-            f"{impact_bins[1]:.1f}-{impact_bins[2]:.1f}",
-            f"{impact_bins[2]:.1f}-{impact_bins[3]:.1f}",
-        ],
-    ),
-    yaxis=dict(
-        tickmode="array",
-        tickvals=[0, 1, 2],
-        ticktext=[
-            f"0-{likelihood_bins[1]:.1f}",
-            f"{likelihood_bins[1]:.1f}-{likelihood_bins[2]:.1f}",
-            f"{likelihood_bins[2]:.1f}-{likelihood_bins[3]:.1f}",
-        ],
-    ),
+    xaxis_title="Impact",
+    yaxis_title="Likelihood",
+    xaxis=dict(showticklabels=False, showgrid=False, zeroline=False, range=[0, 16]),
+    yaxis=dict(showticklabels=False, showgrid=False, zeroline=False, range=[0, 5]),
+    showlegend=True,
 )
 
 fig.show()
