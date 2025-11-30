@@ -6,57 +6,56 @@ import os
 # Get the directory of the current script
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Read production data
-pv = pd.read_csv(os.path.join(script_dir, "pv.csv"))
+# Read monthly data
+monthly_data = pd.read_csv(os.path.join(script_dir, "montly_data.csv"), sep=";")
 
-pv_tot = pv["Electricity produced [kWh]"].iloc[-1]
-pv_sold = pv["Electricity sold to the network [kWh]"].iloc[-1]
-pv_consumed = pv["Electricity self-consumed [kWh]"].iloc[-1]
-
-# Read grid data
-grid = pd.read_csv(os.path.join(script_dir, "grid.csv"))
-grid_bought = grid["Energy drawn from the grid POD IT007E00050692 [kWh]"].iloc[-1]
+# Calculate totals
+pv_tot = monthly_data["PV production [kWh]"].sum()
+pv_sold = monthly_data["Sold [kWh]"].sum()
+pv_consumed = monthly_data["Self-consumed [kWh]"].sum()
+grid_bought = monthly_data["Bought [kWh]"].sum()
 
 # Read consumption sectors data
-sectors_df = pd.read_csv(os.path.join(script_dir, "Sectors_consumption.csv"))
+sectors_df = pd.read_csv(os.path.join(script_dir, "sectors.csv"), sep=";")
 
 # 1. Define the Nodes
 nodes_labels = ["PV", "GRID", "TOTAL ELECTRICAL CONSUMPTION"]
 node_map = {label: i for i, label in enumerate(nodes_labels)}
 
 # Process sectors data to create nodes
-total_consumption_value = sectors_df.loc[
-    sectors_df["Sector"] == "TOTAL", "Consumption [kWh/year]"
-].iloc[0]
+total_consumption_value = sectors_df["Consumption [kWh/year]"].sum()
+
 sectors = []
 sub_sectors = {}
-current_sector = None
 
-for index, row in sectors_df.iterrows():
-    name = row["Sector"].strip()
+# Group by Sector to aggregate consumption
+grouped = sectors_df.groupby("Sector")
 
-    if name == "TOTAL":
-        continue
+for sector_name, group in grouped:
+    sector_consumption = group["Consumption [kWh/year]"].sum()
+    percentage = (sector_consumption / total_consumption_value) * 100
+    label = f"{sector_name} ({percentage:.1f}%)"
 
-    consumption = row["Consumption [kWh/year]"]
-    percentage = (consumption / total_consumption_value) * 100
-    label = f"{name} ({percentage:.1f}%)"
+    sectors.append({"name": sector_name, "consumption": sector_consumption})
+    sub_sectors[sector_name] = []
 
-    if name.isupper():
-        current_sector = name
-        sectors.append({"name": name, "consumption": consumption})
-        sub_sectors[current_sector] = []
-        if name not in node_map:
-            node_map[name] = len(nodes_labels)
-            nodes_labels.append(label)
-    else:
-        if current_sector:
-            sub_sectors[current_sector].append(
-                {"name": name, "consumption": consumption}
-            )
-            if name not in node_map:
-                node_map[name] = len(nodes_labels)
-                nodes_labels.append(label)
+    if sector_name not in node_map:
+        node_map[sector_name] = len(nodes_labels)
+        nodes_labels.append(label)
+
+    for _, row in group.iterrows():
+        sub_name = row["Subsector"]
+        sub_consumption = row["Consumption [kWh/year]"]
+        
+        sub_sectors[sector_name].append(
+            {"name": sub_name, "consumption": sub_consumption}
+        )
+        
+        if sub_name not in node_map:
+            sub_percentage = (sub_consumption / total_consumption_value) * 100
+            sub_label = f"{sub_name} ({sub_percentage:.1f}%)"
+            node_map[sub_name] = len(nodes_labels)
+            nodes_labels.append(sub_label)
 
 # 2. Define the Links
 source_links = [0, 0, 1]
