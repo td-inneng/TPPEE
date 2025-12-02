@@ -1,7 +1,7 @@
 ,,,,,,
 ,,,,,,
 Ref ID,Risk Description,Source Type,Likelihood (1-5),Impact (1-16),Risk Severity Score ,Priority
-R1,Energy prices volatility,External/Economic (Threat),4,16,64,1
+R1,Energy prices volatility,External/Economic (Threat),4,15,60,1
 R2,Supply chain interruption,External/Economic (Threat),2,14,28,4
 R3,Cybersecurity threat,External/Technological (Threat),3,7,21,5
 R4,Competitive pricing pressure,External/Economic (Threat),4,10,40,2
