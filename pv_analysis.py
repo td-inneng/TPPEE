@@ -2,32 +2,43 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # --- Plotting Function (modified to accept column names) ---
-def plot_energy_data(df, self_consumed_col, bought_col, title):
+def plot_energy_data(df, self_consumed_col, bought_col, title, filename=None):
     """
     Plots a stacked bar chart for monthly energy data.
     """
     try:
         months = df['Month']
-        self_consumed = df[self_consumed_col]
-        bought = df[bought_col]
+        # Convert to MWh for better readability
+        self_consumed = df[self_consumed_col] / 1000
+        bought = df[bought_col] / 1000
 
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(12, 7))
         
-        p1 = plt.bar(months, self_consumed, label='Self-consumed')
-        p2 = plt.bar(months, bought, bottom=self_consumed, label='Bought from Grid')
+        # Consistent colors
+        color_self = '#1f77b4' # standard blue
+        color_bought = '#ff7f0e' # standard orange
+
+        p1 = plt.bar(months, self_consumed, label='Self-consumed', color=color_self)
+        p2 = plt.bar(months, bought, bottom=self_consumed, label='Bought from Grid', color=color_bought)
         
         for i, (sc, b) in enumerate(zip(self_consumed, bought)):
             total = sc + b
             if total > 0:
                 percentage = (sc / total) * 100
-                plt.text(i, sc/2, f'{percentage:.1f}%', ha='center', va='center', color='white', fontsize=8)
+                # Increased font size and bold text for visibility
+                plt.text(i, sc/2, f'{percentage:.1f}%', ha='center', va='center', 
+                         color='white', fontsize=12, fontweight='bold')
         
-        plt.xlabel('Month')
-        plt.ylabel('Energy (kWh)')
-        plt.title(title)
-        plt.xticks(rotation=45)
-        plt.legend()
+        plt.xlabel('Month', fontsize=14)
+        plt.ylabel('Energy (MWh)', fontsize=14)
+        plt.title(title, fontsize=16, fontweight='bold')
+        plt.xticks(rotation=45, fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.legend(fontsize=12)
         plt.tight_layout()
+        if filename:
+            plt.savefig(filename)
+            print(f"Saved plot to {filename}")
         plt.show()
         
     except KeyError as e:
@@ -48,7 +59,7 @@ print(f"Original Self-consumption: {original_self_consumption_percentage*100:.2f
 original_energy_sold_to_grid = monthly_data['Sold [kWh]'].sum()
 print(f"Original Energy Sold to Grid: {original_energy_sold_to_grid:.2f} kWh")
 
-plot_energy_data(monthly_data, 'Self-consumed [kWh]', 'Bought [kWh]', 'Original Monthly Energy Consumption')
+plot_energy_data(monthly_data, 'Self-consumed [kWh]', 'Bought [kWh]', 'Original Monthly Energy Consumption', filename='original_scenario.png')
 
 
 # --- Increased PV Scenario ---
@@ -71,4 +82,4 @@ print(f"New Self-consumption with increased PV: {new_self_consumption_percentage
 new_energy_sold_to_grid = monthly_data['New Sold [kWh]'].sum()
 print(f"New Energy Sold to Grid: {new_energy_sold_to_grid:.2f} kWh")
 
-plot_energy_data(monthly_data, 'New Self-consumed [kWh]', 'New Bought [kWh]', 'Increased PV Scenario Monthly Energy Consumption')
+plot_energy_data(monthly_data, 'New Self-consumed [kWh]', 'New Bought [kWh]', 'Increased PV Scenario Monthly Energy Consumption', filename='increased_pv_scenario.png')

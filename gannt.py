@@ -3,87 +3,171 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime, timedelta
 
-# 1. Definition of Tasks and Duration
-# We use a 'Task', 'Start Date', 'End Date' format
-# Fictitious start date: 2026-01-01
+# --- Constants ---
+START_PROJECT = datetime(2026, 1, 1)
 
+def get_date_from_month(month_offset):
+    # Month 1 is Start Date.
+    year = START_PROJECT.year + (month_offset - 1) // 12
+    month = (START_PROJECT.month + (month_offset - 1) - 1) % 12 + 1
+    return datetime(year, month, 1)
+
+def get_end_date_from_month(month_offset):
+    # End of the specified month
+    start_of_month = get_date_from_month(month_offset)
+    # Start of next month
+    if start_of_month.month == 12:
+        next_month = datetime(start_of_month.year + 1, 1, 1)
+    else:
+        next_month = datetime(start_of_month.year, start_of_month.month + 1, 1)
+    return next_month - timedelta(days=1)
+
+# --- Data Definition ---
+# Added M1 and M2 as requested
+# Added M1 and M2 as requested
 tasks_data = [
-    {'Task': 'T1: Team & EnMIS Setup', 'Start': '2026-01-01', 'End': '2026-06-30', 'Phase': 'Foundation'},
-    {'Task': 'T2: Compressed Air Opt.', 'Start': '2026-03-01', 'End': '2027-03-01', 'Phase': 'Execution'},
-    {'Task': 'T4: PV Expansion Install.', 'Start': '2026-06-01', 'End': '2027-01-31', 'Phase': 'Execution'},
-    {'Task': 'T3: Milling Center Logic', 'Start': '2026-08-01', 'End': '2027-05-01', 'Phase': 'Execution'},
-    {'Task': 'Operative Checks (T5)', 'Start': '2026-09-01', 'End': '2027-03-30', 'Phase': 'Execution'},
-    {'Task': 'Internal Audit & Check', 'Start': '2027-01-01', 'End': '2028-01-31', 'Phase': 'Maturity'},
-    {'Task': 'Certification Objective', 'Start': '2028-01-01', 'End': '2028-01-31', 'Phase': 'Maturity'}
+    {
+        'Task': 'T1: EnM Division & EnMIS',
+        'StartMonth': 1, 'EndMonth': 12,
+        'Phase': 'Infrastructure',
+        'Desc': 'Establish team, InfluxDB, Grafana',
+        'Dependency': []
+    },
+    {
+        'Task': 'T2: Compressed Air',
+        'StartMonth': 6, 'EndMonth': 18,
+        'Phase': 'Optimization',
+        'Desc': 'Ultrasonic audits, 4.0 pressure control',
+        'Dependency': []
+    },
+    {
+        'Task': 'T3: Movement Efficiency',
+        'StartMonth': 12, 'EndMonth': 30,
+        'Phase': 'Optimization',
+        'Desc': 'Regen drives, Smart Standby',
+        'Dependency': []
+    },
+    {
+        'Task': 'T4: Circular Thermal Mgmt',
+        'StartMonth': 12, 'EndMonth': 36,
+        'Phase': 'Optimization',
+        'Desc': 'VFD on pumps/UTAs, Isarco integration',
+        'Dependency': []
+    },
+    {
+        'Task': 'T5: PV Load Shifting',
+        'StartMonth': 18, 'EndMonth': 30,
+        'Phase': 'Advanced',
+        'Desc': 'Logic for MES/scheduling',
+        'Dependency': ['T1', 'T4']
+    },
+    {
+        'Task': 'M1: ISO 50001 Pre-Audit',
+        'StartMonth': 24, 'EndMonth': 27,
+        'Phase': 'Certification',
+        'Desc': 'Pre-audit checks',
+        'Dependency': ['T1', 'T2']
+    },
+    {
+        'Task': 'M2: External Certification',
+        'StartMonth': 30, 'EndMonth': 36,
+        'Phase': 'Certification',
+        'Desc': 'Final Certification',
+        'Dependency': ['T3', 'T4', 'T5']
+    }
 ]
+
+# Calculate Dates
+for task in tasks_data:
+    task['Start'] = get_date_from_month(task['StartMonth'])
+    task['End'] = get_end_date_from_month(task['EndMonth'])
 
 df = pd.DataFrame(tasks_data)
 
-# Converti le date in formato numerico (necessario per matplotlib)
-df['Start_date'] = pd.to_datetime(df['Start'])
-df['End_date'] = pd.to_datetime(df['End'])
-df['Duration'] = df['End_date'] - df['Start_date']
-df['Start_num'] = df['Start_date'].apply(mdates.date2num)
+# Convert for Matplotlib
+df['Start_num'] = df['Start'].apply(mdates.date2num)
+df['End_num'] = df['End'].apply(mdates.date2num)
+df['Duration'] = df['End_num'] - df['Start_num']
 
-# Assegna un colore in base alla fase
+# --- Styling ---
 phase_colors = {
-    'Foundation': '#1f77b4',  # Blu
-    'Execution': '#ff7f0e',   # Arancione
-    'Maturity': '#2ca02c'     # Verde
+    'Infrastructure': '#1f77b4',  # Blue
+    'Optimization': '#ff7f0e',    # Orange
+    'Advanced': '#2ca02c',        # Green
+    'Certification': '#d62728'    # Red
 }
 df['Color'] = df['Phase'].map(phase_colors)
 
-# 2. Creazione del Grafico
+# Reverse order for Gantt (Top = First item in list)
+df = df.iloc[::-1].reset_index(drop=True)
 
-fig, ax = plt.subplots(figsize=(12, 6))
+# Helper to look up current index by Task Name substring
+def get_idx(task_str):
+    # Splits "T1: ..." to match "T1"
+    matches = df[df['Task'].str.startswith(task_str)]
+    if not matches.empty:
+        return matches.index[0]
+    return None
 
-# Crea le barre orizzontali
-ax.barh(
-    y=df['Task'],
-    width=df['Duration'].dt.days,
+# --- Plotting ---
+fig, ax = plt.subplots(figsize=(14, 9)) # Increased height for more tasks
+
+# Create bars
+bars = ax.barh(
+    y=df.index,
+    width=df['Duration'],
     left=df['Start_num'],
-    color=df['Color']
+    color=df['Color'],
+    edgecolor='black',
+    height=0.6,
+    alpha=0.9
 )
 
-# Aggiungi etichette ai nomi delle barre
+# Text Labels
 for i, row in df.iterrows():
-    # Posiziona il testo all'inizio della barra con un piccolo offset
+    # Task Name
     ax.text(
-        x=row['Start_num'] + 5,  # Aggiungi un piccolo offset per non sovrapporre il bordo
-        y=i,
-        s=row['Task'],
-        va='center',
-        ha='left',
-        color='black',
-        fontsize=10 # Aumenta la dimensione del font per maggiore leggibilità
+        x=row['Start_num'], 
+        y=i + 0.35, 
+        s=f" {row['Task']}", 
+        va='bottom', ha='left', 
+        fontweight='bold', fontsize=11
+    )
+    # Description
+    ax.text(
+        x=row['Start_num'] + 5, 
+        y=i, 
+        s=f"{row['Desc']}", 
+        va='center', ha='left', 
+        color='white', fontsize=9, fontstyle='italic'
     )
 
-# 3. Formattazione dell'Asse X (Date)
+# --- Formatting ---
+ax.set_title('2026–2029 Strategic Energy Plan', fontsize=16, fontweight='bold', pad=20)
+ax.set_xlabel('Timeline', fontsize=12)
 
-# Converti i numeri di matplotlib in date leggibili
-formatter = mdates.DateFormatter('%b %Y')
-ax.xaxis.set_major_formatter(formatter)
-
-# Imposta l'intervallo dell'asse X (Major ticks)
-ax.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+# Date Axis
+ax.xaxis.set_major_locator(mdates.YearLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
 ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=3))
+plt.xticks(fontsize=11)
 
-# Rotazione delle etichette per leggibilità
-plt.xticks(rotation=45, ha='right')
+# Remove Y Axis ticks
+ax.set_yticks([])
 
-# 4. Aggiunta Dettagli Grafici
+# Grid
+ax.grid(axis='x', linestyle='--', alpha=0.5)
 
-ax.set_title('Energy Audit Action Plan: Implementation Gantt (24 Months)', fontsize=14)
-ax.set_xlabel('Timeline')
-ax.grid(axis='x', linestyle='--', alpha=0.7)
+# Limits
+start_lim = mdates.date2num(datetime(2025, 12, 1)) # Start roughly nearby Jan 2026
+end_lim = mdates.date2num(datetime(2029, 1, 31)) # End Jan 2029 (36 months after start)
+ax.set_xlim(start_lim, end_lim)
 
-# Invert the Y axis to have the most important tasks at the top
-ax.invert_yaxis()
-
-# Create legend for the phases
-handles = [plt.Rectangle((0,0),1,1, color=phase_colors[label]) for label in phase_colors]
-ax.legend(handles, phase_colors.keys(), title="Phases", loc='upper right')
+# Legend
+handles = [plt.Rectangle((0,0),1,1, color=color) for color in phase_colors.values()]
+ax.legend(handles, phase_colors.keys(), loc='upper right', title="Phases")
 
 plt.tight_layout()
-plt.savefig('gantt_chart_energy_audit.png')
-print("Gantt chart saved as 'gantt_chart_energy_audit.png'")
+filename = 'strategic_energy_plan_gantt.png'
+plt.savefig(filename, dpi=300)
+print(f"Saved {filename}")

@@ -5,11 +5,16 @@ from typing import Dict, List, Tuple
 
 # --- Color Palette ---
 COLOR_PALETTE = {
-    "PV": "rgba(44, 160, 44, 0.8)",         # Green
-    "GRID": "rgba(128, 128, 128, 0.8)",   # Grey
-    "TOTAL ELECTRICAL CONSUMPTION": "rgba(31, 119, 180, 0.8)", # Blue
-    "SECTOR": "rgba(255, 127, 14, 0.8)",   # Orange
-    "SUBSECTOR": "rgba(173, 216, 230, 0.8)", # Light Blue
+    "PV": "rgba(120, 190, 51, 0.8)",         # Distinct Chartreuse Green
+    "GRID": "rgba(128, 128, 128, 0.8)",     # Grey
+    "TOTAL ELECTRICAL CONSUMPTION": "rgba(31, 119, 180, 0.8)", # Default Blue
+    
+    # Specific Sector Colors (matching activity_density_plot.py)
+    "MAIN ACTIVITIES": "rgba(31, 119, 180, 0.8)",    # Blue
+    "AUXILIARY SERVICES": "rgba(255, 127, 14, 0.8)", # Orange
+    "GENERAL SERVICES": "rgba(44, 160, 44, 0.8)",    # Standard Green
+    
+    "SUBSECTOR": "rgba(173, 216, 230, 0.8)",  # Light Blue
 }
 
 # --- Helper Functions ---
@@ -50,13 +55,14 @@ def prepare_sankey_data(monthly_df: pd.DataFrame, sectors_df: pd.DataFrame) -> T
     for sector_name in sector_node_names:
         sector_consumption = sectors_df[sectors_df['Sector'] == sector_name]['Consumption [kWh/year]'].sum()
         percentage = (sector_consumption / total_consumption_value) * 100
-        nodes_with_data[sector_name] = {"label": f"{sector_name} ({percentage:.1f}%)", "consumption": sector_consumption}
+        nodes_with_data[sector_name] = {"label": f"<b>{sector_name}<br>({percentage:.1f}%)</b>", "consumption": sector_consumption}
         
     for _, row in sectors_df.iterrows():
         sub_name = row["Subsector"]
         sub_consumption = row["Consumption [kWh/year]"]
         sub_percentage = (sub_consumption / total_consumption_value) * 100
-        nodes_with_data[sub_name] = {"label": f"{sub_name} ({sub_percentage:.1f}%)"}
+        # Included bold formatting for clearer visibility
+        nodes_with_data[sub_name] = {"label": f"<b>{sub_name}<br>({sub_percentage:.1f}%)</b>"}
 
     # 4. Define all links between nodes
     links = {"source": [], "target": [], "value": []}
@@ -78,10 +84,26 @@ def prepare_sankey_data(monthly_df: pd.DataFrame, sectors_df: pd.DataFrame) -> T
         add_link(row['Sector'], row['Subsector'], row['Consumption [kWh/year]'])
         
     # 5. Prepare final node and link dictionaries for Plotly
+    
+    # Calculate node colors
+    subsector_to_sector = dict(zip(sectors_df['Subsector'], sectors_df['Sector']))
+    node_colors = []
+    
+    for name, n_type in zip(ordered_node_names, node_types):
+        if name in COLOR_PALETTE:
+            node_colors.append(COLOR_PALETTE[name])
+        elif n_type == 'subsector' and name in subsector_to_sector:
+            parent_sector = subsector_to_sector[name]
+            # Use parent sector color (same as arrow)
+            node_colors.append(COLOR_PALETTE.get(parent_sector, "rgba(200, 200, 200, 0.8)"))
+        else:
+            node_colors.append("rgba(200, 200, 200, 0.8)")
+
     sankey_nodes = {
-        "label": [nodes_with_data.get(name, {"label": name})["label"] for name in ordered_node_names],
+        "label": [nodes_with_data.get(name, {"label": f"<b>{name}</b>"})["label"] for name in ordered_node_names],
         "name": ordered_node_names,
         "type": node_types,
+        "color": node_colors,
     }
     
     return sankey_nodes, links
@@ -89,28 +111,14 @@ def prepare_sankey_data(monthly_df: pd.DataFrame, sectors_df: pd.DataFrame) -> T
 def create_sankey_figure(nodes: Dict, links: Dict) -> go.Figure:
     """Creates and styles the Sankey diagram figure with custom colors."""
     
-    node_colors = []
-    for i, name in enumerate(nodes["name"]):
-        node_type = nodes["type"][i]
-        if node_type == 'main':
-            if name in COLOR_PALETTE:
-                node_colors.append(COLOR_PALETTE[name])
-            else:
-                node_colors.append("rgba(0, 0, 0, 0.8)") # Default for uncategorized main nodes
-        elif node_type == 'sector':
-            node_colors.append(COLOR_PALETTE["SECTOR"])
-        elif node_type == 'subsector':
-            node_colors.append(COLOR_PALETTE["SUBSECTOR"])
-        else:
-            node_colors.append("rgba(200, 200, 200, 0.8)")
-
+    node_colors = nodes["color"]
     link_colors = [node_colors[s].replace("0.8", "0.4") for s in links["source"]]
 
     trace = go.Sankey(
         node=dict(
-            pad=20,
-            thickness=25,
-            line=dict(color="black", width=0.5),
+            pad=30,  # Increased padding for cleaner separation
+            thickness=40, # Thicker nodes for "squared" look
+            line=dict(color="black", width=1), # Sharp edges
             label=nodes["label"],
             color=node_colors,
         ),
@@ -125,7 +133,8 @@ def create_sankey_figure(nodes: Dict, links: Dict) -> go.Figure:
     fig = go.Figure(data=[trace])
     fig.update_layout(
         title_text="<b>Energy Flow Sankey Diagram</b>",
-        font=dict(size=12),
+        title_font_size=24,
+        font=dict(size=14, family="Arial"), # Larger, clearer font
     )
     return fig
 
